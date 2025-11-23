@@ -3,6 +3,9 @@
 """
 from DrissionPage import ChromiumPage
 import time
+import re
+from openpyxl import Workbook
+from datetime import datetime
 
 # 创建页面对象
 page = ChromiumPage()
@@ -76,50 +79,63 @@ try:
     print(f"当前窗口数量: {len(page.tab_ids)}")
     print(f"当前窗口URL: {page.url}")
     
-    # 等待新窗口出现并切换到新窗口
+    # 检查是否有新窗口打开，如果有则关闭新窗口，保持在第一个窗口操作
     try:
-        print("等待新窗口出现...")
+        print("检查是否有新窗口打开...")
         new_tab = page.wait.new_tab(timeout=5)
         if new_tab:
             print(f"✓ 检测到新窗口")
             print(f"新窗口URL: {new_tab.url}")
             
-            # 激活新窗口
-            print("切换到新窗口...")
-            new_tab.set.activate()
-            time.sleep(2)
-            
-            # 更新page对象指向新窗口
-            page = new_tab
-            print(f"✓ 已切换到新窗口")
-            print(f"当前窗口URL: {page.url}")
+            # 关闭新窗口，保持在第一个窗口
+            print("关闭新窗口，保持在第一个窗口操作...")
+            try:
+                new_tab.close()
+                time.sleep(1)
+                print(f"✓ 已关闭新窗口")
+            except Exception as close_error:
+                print(f"关闭新窗口失败: {close_error}")
         else:
             print("未检测到新窗口，可能在同一窗口跳转")
     except Exception as e:
         print(f"等待新窗口失败: {e}")
         # 如果等待新窗口失败，检查是否有多个窗口
         if len(page.tab_ids) > 1:
-            print(f"检测到多个窗口，尝试其他方法切换...")
+            print(f"检测到多个窗口，关闭多余的窗口...")
             try:
-                # 尝试使用latest_tab
-                latest_tab = page.latest_tab
-                if latest_tab:
-                    print(f"获取到最新标签页，URL: {latest_tab.url}")
-                    latest_tab.set.activate()
-                    page = latest_tab
-                    time.sleep(2)
-                    print(f"✓ 已切换到最新窗口")
-                    print(f"当前窗口URL: {page.url}")
+                # 获取所有标签页
+                tabs = page.tabs
+                print(f"共有 {len(tabs)} 个标签页")
+                
+                # 获取当前窗口的ID
+                current_tab_id = None
+                try:
+                    current_tab_id = page.tab_id
+                except:
+                    pass
+                
+                # 关闭除第一个窗口外的所有窗口
+                for i, tab in enumerate(tabs):
+                    try:
+                        tab_id = tab.tab_id if hasattr(tab, 'tab_id') else None
+                        tab_url = tab.url
+                        print(f"  标签页 {i+1}: URL = {tab_url}, ID = {tab_id}")
+                        
+                        # 如果不是第一个窗口，关闭它
+                        if i > 0:  # 保留第一个窗口（索引0），关闭其他的
+                            print(f"  关闭标签页 {i+1}...")
+                            tab.close()
+                            time.sleep(0.5)
+                    except Exception as tab_error:
+                        print(f"  处理标签页 {i+1} 时出错: {tab_error}")
+                
+                print(f"✓ 已关闭多余的窗口，保持在第一个窗口")
+                print(f"当前窗口URL: {page.url}")
             except Exception as e2:
-                print(f"切换窗口失败: {e2}")
-                # 如果无法切换，直接访问京东首页
-                print("无法切换窗口，直接访问京东首页...")
-                page.get('https://www.jd.com')
-                time.sleep(3)
-                print(f"直接访问后的URL: {page.url}")
+                print(f"关闭多余窗口失败: {e2}")
         else:
-            print("只有一个窗口，等待页面跳转...")
-            time.sleep(2)
+            print("只有一个窗口，继续操作...")
+            time.sleep(1)
             print(f"当前窗口URL: {page.url}")
     
     # 确认是否在京东首页
@@ -362,13 +378,13 @@ try:
                         print("✓ 已清空输入框")
                         
                         # 使用input方法输入
-                        search_input.input('RTX5090 / D')
+                        search_input.input('RTX 5090D V2显卡')
                         time.sleep(0.8)
                         
                         # 验证输入是否成功
                         input_value = search_input.value
                         print(f"输入后，输入框的值: '{input_value}'")
-                        if input_value and 'RTX5090' in input_value:
+                        if input_value and ('rtx' in input_value.lower() and '5090' in input_value.lower()):
                             print(f"✓ 已通过input方法输入搜索内容：{input_value}")
                             
                             # 使用JavaScript确保值被设置并触发所有事件
@@ -382,7 +398,7 @@ try:
                                         input.focus();
                                         
                                         // 设置值
-                                        input.value = 'RTX5090 / D';
+                                        input.value = 'RTX 5090D V2显卡';
                                         
                                         // 触发所有可能的事件
                                         var events = ['input', 'change', 'keyup', 'keydown', 'focus', 'blur'];
@@ -479,13 +495,13 @@ try:
                         # 方法2: 使用set.value方法
                         print("\n尝试方法2: 使用set.value()方法...")
                         try:
-                            search_input.set.value('RTX5090 / D')
+                            search_input.set.value('RTX 5090D V2显卡')
                             time.sleep(0.8)
                             
                             # 验证输入是否成功
                             input_value = search_input.value
                             print(f"输入后，输入框的值: '{input_value}'")
-                            if input_value and 'RTX5090' in input_value:
+                            if input_value and ('rtx' in input_value.lower() and '5090' in input_value.lower()):
                                 print(f"✓ 已通过set.value输入搜索内容：{input_value}")
                             else:
                                 print(f"✗ set.value方法失败，输入框值仍为: '{input_value}'")
@@ -505,7 +521,7 @@ try:
                                 time.sleep(0.3)
                                 
                                 # 逐个字符输入
-                                text_to_input = 'RTX5090 / D'
+                                text_to_input = 'RTX 5090D V2显卡'
                                 for char in text_to_input:
                                     search_input.input(char)
                                     time.sleep(0.1)
@@ -515,7 +531,7 @@ try:
                                 # 验证输入是否成功
                                 input_value = search_input.value
                                 print(f"输入后，输入框的值: '{input_value}'")
-                                if input_value and 'RTX5090' in input_value:
+                                if input_value and ('rtx' in input_value.lower() and '5090' in input_value.lower()):
                                     print(f"✓ 已通过逐个字符输入搜索内容：{input_value}")
                                 else:
                                     print(f"✗ 逐个字符输入也失败，输入框值仍为: '{input_value}'")
@@ -594,9 +610,388 @@ try:
         traceback.print_exc()
     
     # 等待搜索结果加载
+    print("\n等待搜索结果页面加载...")
     time.sleep(3)
+    print(f"搜索结果页面URL: {page.url}")
     
-    print("操作完成！")
+    # 查找并点击"显卡"分类
+    print("\n正在查找'显卡'分类元素...")
+    try:
+        # 方法1: 通过class和文本内容查找
+        graphics_card_span = page.ele('xpath://span[@class="_value-label_1xq81_50" and text()="显卡"]', timeout=10)
+        if not graphics_card_span:
+            # 方法2: 通过class查找，然后筛选文本内容
+            all_spans = page.eles('xpath://span[@class="_value-label_1xq81_50"]', timeout=10)
+            for span in all_spans:
+                if span.text == '显卡':
+                    graphics_card_span = span
+                    break
+        
+        if graphics_card_span:
+            print("✓ 找到'显卡'分类元素")
+            print(f"元素文本: {graphics_card_span.text}")
+            
+            # 滚动到元素位置
+            try:
+                graphics_card_span.scroll.to_see()
+                time.sleep(0.5)
+            except:
+                pass
+            
+            # 点击"显卡"
+            graphics_card_span.click()
+            print("✓ 已点击'显卡'分类")
+            time.sleep(2)  # 等待页面更新
+        else:
+            print("✗ 未找到'显卡'分类元素")
+    except Exception as e:
+        print(f"查找或点击'显卡'分类时出错: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # 查找并双击"价格"排序元素
+    print("\n正在查找'价格'排序元素...")
+    try:
+        price_element = None
+        
+        # 方法1: 直接查找包含"价格"文本的span元素
+        print("方法1: 查找span[text()='价格']...")
+        price_span = page.ele('xpath://span[text()="价格"]', timeout=10)
+        if price_span:
+            print(f"✓ 找到span元素，文本: {price_span.text}")
+            # 找到span的父元素div（class="_sort-tag-inner_3m6t1_24"）
+            try:
+                price_element = price_span.parent()
+                if price_element and '_sort-tag-inner_3m6t1_24' in price_element.attr('class'):
+                    print(f"✓ 找到父元素div")
+                else:
+                    # 如果父元素不对，尝试向上查找
+                    price_element = price_span
+                    print("使用span元素本身")
+            except:
+                price_element = price_span
+        
+        if not price_element:
+            # 方法2: 查找所有包含"价格"文本的span，然后找到对应的div
+            print("方法2: 查找所有包含'价格'的span元素...")
+            all_spans = page.eles('xpath://span[contains(text(), "价格")]', timeout=10)
+            for span in all_spans:
+                if span.text == '价格':
+                    print(f"找到span，文本: {span.text}")
+                    try:
+                        parent = span.parent()
+                        if parent and '_sort-tag-inner_3m6t1_24' in parent.attr('class'):
+                            price_element = parent
+                            print(f"✓ 找到父元素div")
+                            break
+                        else:
+                            price_element = span
+                            print("使用span元素本身")
+                            break
+                    except:
+                        price_element = span
+                        break
+        
+        if not price_element:
+            # 方法3: 查找div中包含"价格"span的
+            print("方法3: 查找div中包含'价格'span的元素...")
+            all_divs = page.eles('xpath://div[@class="_sort-tag-inner_3m6t1_24"]', timeout=10)
+            for div in all_divs:
+                # 检查div中是否包含"价格"文本的span
+                try:
+                    spans = div.eles('tag:span')
+                    for span in spans:
+                        if span.text == '价格':
+                            price_element = div
+                            print(f"✓ 找到包含'价格'span的div")
+                            break
+                    if price_element:
+                        break
+                except:
+                    if '价格' in div.text:
+                        price_element = div
+                        print(f"✓ 找到包含'价格'文本的div")
+                        break
+        
+        if price_element:
+            print(f"✓ 找到'价格'排序元素")
+            print(f"元素标签: {price_element.tag}")
+            print(f"元素文本: {price_element.text}")
+            
+            # 滚动到元素位置
+            try:
+                price_element.scroll.to_see()
+                time.sleep(0.5)
+            except:
+                pass
+            
+            # 双击"价格"（点击两次）
+            print("准备双击'价格'排序...")
+            
+            # 第一次点击
+            print("第一次点击'价格'...")
+            try:
+                price_element.click()
+                print("✓ 第一次点击成功")
+                time.sleep(1)  # 等待第一次点击生效
+            except Exception as click1_error:
+                print(f"✗ 第一次点击失败: {click1_error}")
+            
+            # 重新查找元素，确保元素仍然可用（页面可能已更新）
+            try:
+                # 重新查找价格元素
+                price_span = page.ele('xpath://span[text()="价格"]', timeout=5)
+                if price_span:
+                    try:
+                        price_element = price_span.parent()
+                        if price_element and '_sort-tag-inner_3m6t1_24' in price_element.attr('class'):
+                            pass  # 找到了
+                        else:
+                            price_element = price_span
+                    except:
+                        price_element = price_span
+                else:
+                    # 如果找不到，尝试其他方法
+                    all_divs = page.eles('xpath://div[@class="_sort-tag-inner_3m6t1_24"]', timeout=5)
+                    for div in all_divs:
+                        spans = div.eles('tag:span')
+                        for span in spans:
+                            if span.text == '价格':
+                                price_element = div
+                                break
+                        if price_element:
+                            break
+            except:
+                print("重新查找元素失败，使用原元素继续...")
+            
+            # 第二次点击
+            print("第二次点击'价格'...")
+            try:
+                price_element.click()
+                print("✓ 第二次点击成功")
+                time.sleep(1)  # 等待第二次点击生效
+            except Exception as click2_error:
+                print(f"✗ 第二次点击失败: {click2_error}")
+            
+            print("✓ 已双击'价格'排序")
+            time.sleep(2)  # 等待页面更新
+        else:
+            print("✗ 未找到'价格'排序元素")
+            # 列出所有可能的元素供调试
+            try:
+                print("列出所有包含'价格'的元素...")
+                all_price_elements = page.eles('xpath://*[contains(text(), "价格")]', timeout=5)
+                for i, elem in enumerate(all_price_elements[:10]):
+                    print(f"  元素 {i+1}: 标签={elem.tag}, 文本={elem.text}, class={elem.attr('class')}")
+            except:
+                pass
+    except Exception as e:
+        print(f"查找或点击'价格'排序时出错: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # 获取前10个商品名称并保存到Excel
+    print("\n开始获取商品信息...")
+    try:
+        # 等待页面完全加载
+        print("等待商品列表加载...")
+        time.sleep(3)
+        
+        # 查找所有商品标签
+        print("查找商品标签...")
+        product_wrappers = page.eles('xpath://div[@class="_wrapper_8v3rv_3 plugin_goodsCardWrapper _row_6_8v3rv_13"]', timeout=10)
+        
+        if not product_wrappers:
+            # 尝试其他可能的class组合
+            product_wrappers = page.eles('xpath://div[contains(@class, "_wrapper_8v3rv_3") and contains(@class, "plugin_goodsCardWrapper")]', timeout=10)
+        
+        print(f"找到 {len(product_wrappers)} 个商品")
+        
+        # 获取所有商品的名称、价格、显卡型号、显存大小和店铺名称
+        product_data = []  # 存储商品信息：[(名称, 显卡型号, 显存大小, 价格, 店铺名称), ...]
+        for i, wrapper in enumerate(product_wrappers):
+            product_name = ''
+            product_price = ''
+            gpu_model = ''
+            memory_size = ''
+            shop_name = ''
+            
+            try:
+                # 在每个商品标签下查找商品名称
+                name_span = wrapper.ele('xpath:.//span[@class="_text_1g56m_31"]', timeout=3)
+                if name_span:
+                    # 获取商品名称（去除HTML标签，只保留文本）
+                    product_name = name_span.text
+                    if not product_name:
+                        # 如果text为空，尝试获取title属性
+                        product_name = name_span.attr('title') or ''
+                    
+                    # 从商品名称中提取显卡型号和显存大小
+                    if product_name:
+                        # 提取显卡型号
+                        model_patterns = [
+                            r'RTX\s*5090[Dd]\s*[Vv]?\s*2',  # RTX 5090D V2, RTX5090D v2
+                            r'RTX\s*5090[Dd]',  # RTX 5090D
+                            r'5090[Dd]\s*[Vv]?\s*2',  # 5090D V2, 5090D v2
+                        ]
+                        for pattern in model_patterns:
+                            match = re.search(pattern, product_name, re.IGNORECASE)
+                            if match:
+                                gpu_model = match.group().strip()
+                                break
+                        
+                        # 如果没找到，尝试查找包含5090的型号
+                        if not gpu_model:
+                            match = re.search(r'RTX\s*\d+[Dd]?', product_name, re.IGNORECASE)
+                            if match:
+                                gpu_model = match.group().strip()
+                        
+                        # 提取显存大小（如：24G、32G、24GB、32GB等）
+                        memory_patterns = [
+                            r'(\d+)\s*[Gg][Bb]?',  # 24G, 32GB, 24GB等
+                            r'(\d+)\s*[Gg]',  # 24G, 32G等
+                        ]
+                        for pattern in memory_patterns:
+                            match = re.search(pattern, product_name)
+                            if match:
+                                memory_size = match.group(1) + 'G'  # 统一格式为数字+G
+                                break
+                
+                # 查找价格元素
+                price_span = wrapper.ele('xpath:.//span[@class="_price_uqsva_14"]', timeout=3)
+                if price_span:
+                    # 获取价格文本（包含¥符号和数字）
+                    price_text = price_span.text
+                    if price_text:
+                        # 提取数字部分（去除¥符号和空格）
+                        price_match = re.search(r'[\d,]+', price_text.replace(',', ''))
+                        if price_match:
+                            product_price = price_match.group()
+                        else:
+                            product_price = price_text.strip()
+                    else:
+                        # 如果text为空，尝试获取内部文本
+                        try:
+                            # 查找所有子元素，提取价格数字
+                            price_elements = price_span.eles('tag:*')
+                            for elem in price_elements:
+                                elem_text = elem.text or ''
+                                price_match = re.search(r'[\d,]+', elem_text.replace(',', ''))
+                                if price_match:
+                                    product_price = price_match.group()
+                                    break
+                        except:
+                            pass
+                
+                # 查找店铺名称
+                shop_link = wrapper.ele('xpath:.//a[@class="_name_d19t5_35"]', timeout=3)
+                if shop_link:
+                    # 在店铺链接下查找店铺名称span
+                    shop_span = shop_link.ele('xpath:.//span', timeout=2)
+                    if shop_span:
+                        shop_name = shop_span.text or ''
+                
+                if product_name:
+                    product_data.append((product_name, gpu_model, memory_size, product_price, shop_name))
+                    print(f"  商品 {i+1}: {product_name}")
+                    print(f"    显卡型号: {gpu_model if gpu_model else '未提取到'}")
+                    print(f"    显存大小: {memory_size if memory_size else '未提取到'}")
+                    print(f"    今日最低价: {product_price if product_price else '未获取到'}")
+                    print(f"    店铺名称: {shop_name if shop_name else '未获取到'}")
+                else:
+                    print(f"  商品 {i+1}: 无法获取名称")
+            except Exception as e:
+                print(f"  商品 {i+1}: 获取信息时出错 - {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # 找到价格最低的商品
+        if product_data:
+            print(f"\n共获取到 {len(product_data)} 个商品信息，正在查找价格最低的商品...")
+            
+            # 筛选出有价格的商品并找到最低价
+            valid_products = []
+            for name, model, memory, price, shop in product_data:
+                if price and price.isdigit():
+                    try:
+                        price_num = int(price)
+                        valid_products.append((name, model, memory, price, shop, price_num))
+                    except:
+                        pass
+            
+            if valid_products:
+                # 按价格排序，找到最低价的商品
+                valid_products.sort(key=lambda x: x[5])  # 按价格排序
+                lowest_price_product = valid_products[0]
+                
+                print(f"\n找到价格最低的商品:")
+                print(f"  商品名称: {lowest_price_product[0]}")
+                print(f"  显卡型号: {lowest_price_product[1] if lowest_price_product[1] else '未提取到'}")
+                print(f"  显存大小: {lowest_price_product[2] if lowest_price_product[2] else '未提取到'}")
+                print(f"  今日最低价: {lowest_price_product[3]}")
+                print(f"  店铺名称: {lowest_price_product[4] if lowest_price_product[4] else '未获取到'}")
+                
+                # 创建Excel工作簿
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "商品列表"
+                
+                # 获取当前日期时间
+                save_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                platform = "京东"
+                
+                # 设置表头（调整顺序：电商平台在店铺名称前）
+                ws['A1'] = '序号'
+                ws['B1'] = '商品名称'
+                ws['C1'] = '显卡型号'
+                ws['D1'] = '显存大小'
+                ws['E1'] = '今日最低价'
+                ws['F1'] = '保存日期'
+                ws['G1'] = '电商平台'
+                ws['H1'] = '店铺名称'
+                
+                # 写入数据（只保存价格最低的一个商品）
+                name, model, memory, price, shop = lowest_price_product[:5]
+                ws['A2'] = 1
+                ws['B2'] = name
+                ws['C2'] = model if model else '未提取到'
+                ws['D2'] = memory if memory else '未提取到'
+                ws['E2'] = price if price else '未获取到'
+                ws['F2'] = save_date
+                ws['G2'] = platform
+                ws['H2'] = shop if shop else '未获取到'
+                
+                # 调整列宽
+                ws.column_dimensions['A'].width = 10
+                ws.column_dimensions['B'].width = 100
+                ws.column_dimensions['C'].width = 20
+                ws.column_dimensions['D'].width = 15
+                ws.column_dimensions['E'].width = 15
+                ws.column_dimensions['F'].width = 20
+                ws.column_dimensions['G'].width = 15
+                ws.column_dimensions['H'].width = 30
+                
+                # 生成文件名（包含时间戳）
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"商品列表_{timestamp}.xlsx"
+                
+                # 保存文件
+                wb.save(filename)
+                print(f"\n✓ 已保存到文件: {filename}")
+                print(f"  保存了价格最低的1条商品信息")
+                print(f"  保存日期: {save_date}")
+                print(f"  电商平台: {platform}")
+            else:
+                print("✗ 未找到有有效价格的商品")
+        else:
+            print("✗ 未获取到任何商品信息")
+            
+    except Exception as e:
+        print(f"获取商品信息时出错: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    print("\n操作完成！")
     
     # 保持浏览器打开，方便查看
     input("按 Enter 键关闭浏览器...")
